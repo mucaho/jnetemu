@@ -12,7 +12,7 @@ The code can be found inside __DatagramWanEmulator.java__
 
 JavaDoc
 ---------------------
-The generated javadoc can be found on the [__Github Pages__](http://mucaho.github.io/Java-UDP-WAN-Simulator)
+The generated javadoc can be found on the [__Github Pages__](http://mucaho.github.io/Java-UDP-WAN-Emulator)
 
 Example
 ---------------------
