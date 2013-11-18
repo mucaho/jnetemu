@@ -6,12 +6,22 @@ This is a convenience class for debugging UDP communication. The DatagramWanEmul
 two specified DatagramSockets and introduces latency, jitter and package loss 
 between these two sockets.
 
+Source
+---------------------
+The code can be found inside __DatagramWanEmulator.java__
+
+JavaDoc
+---------------------
+The generated javadoc can be found on the [__Github Pages__](http://mucaho.github.io/Java-UDP-WAN-Simulator)
+
 Example
 ---------------------
-Following is a short pseudo-code example, the debugging output shows the following characteristics:
+Here is a short pseudo-code example, the debugging output shows the following characteristics.
+_All of this parameters can be tuned:_
 * Messages get delivered delayed.
 * Messages get delivered out-of-order.
-* Some messages do not get delivered at all.
+* Some messages do not get delivered at all.   
+
 
 
 The complete, executable test can be found inside __TestWanEmulator.java__.
