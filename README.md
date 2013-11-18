@@ -1,4 +1,4 @@
-Emulating Java datagram communication in a WAN environment
+Java datagrams in simulated WAN
 ======================
 
 Java utility for simulating simple network characteristics found in WANs (delay, jitter, package loss).   
