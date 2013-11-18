@@ -21,6 +21,7 @@
  * THE SOFTWARE.
  */
 
+package util;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -35,8 +36,8 @@ import java.util.concurrent.TimeUnit;
  * between these two sockets.
  * <p>
  * In order to use the emulator, you send the {@link DatagramPacket}s directly 
- * to the emulator's {@linkplain SocketAddress} instead of sending them to the receiver 
- * {@linkplain SocketAddress}. 
+ * to the emulator's {@link java.net.SocketAddress} instead of sending them to the receiver 
+ * {@link java.net.SocketAddress}. 
  * The emulator will introduce latency, jitter and package loss. Then it will send 
  * the packets to the receiving socket.
  * <p>
@@ -192,7 +193,7 @@ public class DatagramWanEmulator {
 	};
 	
 	/**
-	 * Start the emulation.
+	 * Start the emulation between the two sockets.
 	 */
 	public void startEmulation() {
 		if (runningThread == null) {
