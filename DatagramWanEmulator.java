@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit;
  * to start and stop the emulation.
  * The specific emulation parameters can be tuned with the appropriate getters / setters. 
  * 
- * @author mkucko@gmail.com
+ * @author mucaho
  *
  */
 public class DatagramWanEmulator {
