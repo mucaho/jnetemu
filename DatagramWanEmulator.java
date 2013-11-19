@@ -238,7 +238,6 @@ public class DatagramWanEmulator {
 	 * Let the emulation end and close the associated emulator socket.
 	 */
 	public void stopEmulation() {
-		executor.shutdown();
 		emulatorSocket.close();
 	}
 }
