@@ -187,12 +187,6 @@ public class DatagramWanEmulator {
 	public void setMinLatency(int minLatency) {
 		this.minLatency = minLatency;
 	}
-
-	/** The is running. */
-	private volatile boolean isRunning = false;
-	
-	/** The running thread. */
-	private Thread runningThread = null;
 	
 	/** The runnable. */
 	private final Runnable runnable = new Runnable() {
@@ -200,7 +194,7 @@ public class DatagramWanEmulator {
 		@Override
 		public void run() { try {
 			
-			while(isRunning) {
+			while(true) {
 				byte[] bytes = new byte[maxPacketLength];
 				final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
 				emulatorSocket.receive(packet);
@@ -222,30 +216,27 @@ public class DatagramWanEmulator {
 			}
 				
 				
-		} catch (Exception e) { e.printStackTrace(); isRunning = false; runningThread = null;}}
+		} catch (SocketException se) {/*closed*/} catch (Exception e) { e.printStackTrace();}}
 	};
 	
 	/**
 	 * Start the emulation between the two sockets.
+	 * @throws IllegalStateException if the current instance has already been stopped by stopEmulation(). 
+	 * Create new 
+	 * {@link DatagramWanEmulator#DatagramWanEmulator(InetSocketAddress, InetSocketAddress, InetSocketAddress) instance} 
+	 * instead.
 	 */
-	public void startEmulation() {
-		if (runningThread == null) {
-			isRunning = true;
-			runningThread = new Thread(runnable);
-			runningThread.start();
-		}
+	public void startEmulation() throws IllegalStateException {
+		if (emulatorSocket.isClosed()) 
+			throw new IllegalStateException("This instance has already been stopped. Create a new one.");
+		
+		new Thread(runnable).start();
 	}
 	
 	/**
-	 * Let the emulation end gracefully.
-	 *
-	 * @throws InterruptedException the interrupted exception
+	 * Let the emulation end and close the associated emulator socket.
 	 */
-	public void stopEmulation() throws InterruptedException {
-		if (runningThread != null) {
-			isRunning = false;
-			runningThread.join();
-			runningThread = null;
-		}
+	public void stopEmulation() {
+		emulatorSocket.close();
 	}
 }
