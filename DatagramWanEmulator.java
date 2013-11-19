@@ -52,13 +52,13 @@ public class DatagramWanEmulator {
 	/**
 	 * Internally used. Queues up delayed sending of datagram packets
 	 */
-	private final ScheduledThreadPoolExecutor STPE = new ScheduledThreadPoolExecutor(1);
+	private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
 
-	/** The socket address1. */
-	private final InetSocketAddress socketAddress1;
+	/** The socket address A. */
+	private final InetSocketAddress socketAddressA;
 	
-	/** The socket address2. */
-	private final InetSocketAddress socketAddress2;
+	/** The socket address B. */
+	private final InetSocketAddress socketAddressB;
 	
 	/** The emulator socket. */
 	private DatagramSocket emulatorSocket;
@@ -67,36 +67,47 @@ public class DatagramWanEmulator {
 	 * Construct a new DatagramWanEmulator. This will automatically create a new socket 
 	 * bound to the specified emulatorAddress.
 	 *
-	 * @param emulatorAddress the emulator address
-	 * @param hostAddress1 the host address1
-	 * @param hostAddress2 the host address2
-	 * @throws SocketException the socket exception
+	 * @param emulatorAddress	the emulator address
+	 * @param socketAddressA	one socket address
+	 * @param socketAddressB	the other socket address
+	 * @throws SocketException	the socket exception
 	 */
-	public DatagramWanEmulator(InetSocketAddress emulatorAddress, InetSocketAddress hostAddress1, 
-			InetSocketAddress hostAddress2) throws SocketException {
-		this.socketAddress1 = hostAddress1;
-		this.socketAddress2 = hostAddress2;
+	public DatagramWanEmulator(InetSocketAddress emulatorAddress, InetSocketAddress socketAddressA, 
+			InetSocketAddress socketAddressB) throws SocketException {
+		this.socketAddressA = socketAddressA;
+		this.socketAddressB = socketAddressB;
 		
 		emulatorSocket = new DatagramSocket(emulatorAddress);
 	}
 	
 	/**
-	 * The maximum size of incoming / outcoming datagram packets. Defaults to 1024.
+	 * The maximum size of incoming / outcoming datagram packets (in bytes).
+	 * Defaults to 1024.
 	 */
 	private int maxPacketLength = 1024;
 	/**
 	 * The amount of package loss. A value of 0.0f means no package loss, 
-	 * a value of 1.0f means every packet will be lost.
+	 * a value of 1.0f means every packet will be lost. 
+	 * Defaults to 0.1f (10%).
 	 */
 	private float packageLossPercentage = 0.1f;
 	/**
 	 * The maximum latency between sending from one host to receiving on the other one.
-	 * The latency will vary between zero and this value.
+	 * The latency will vary between minLatency and maxLatency.
+	 * Defaults to 250 ms.
 	 */
 	private int maxLatency = 250;
 	
 	/**
-	 * Gets the max packet length.
+	 * The minimum latency between sending from one host to receiving on the other one.
+	 * The latency will vary between minLatency and maxLatency.
+	 * Defaults to 100 ms.
+	 */
+	private int minLatency = 100;
+	
+	/**
+	 * Gets the maximum size of incoming / outcoming datagram packets (in bytes).
+	 * Defaults to 1024.
 	 *
 	 * @return the max packet length
 	 */
@@ -105,7 +116,8 @@ public class DatagramWanEmulator {
 	}
 
 	/**
-	 * Sets the max packet length.
+	 * Sets the maximum size of incoming / outcoming datagram packets (in bytes).
+	 * Defaults to 1024.
 	 *
 	 * @param maxPacketLength the new max packet length
 	 */
@@ -114,7 +126,9 @@ public class DatagramWanEmulator {
 	}
 
 	/**
-	 * Gets the package loss percentage.
+	 * Gets the amount of package loss. 
+	 * A value of 0.0f means no package loss, a value of 1.0f means every packet will be lost.
+	 * Defaults to 0.1f (== 10%).
 	 *
 	 * @return the package loss percentage
 	 */
@@ -123,7 +137,9 @@ public class DatagramWanEmulator {
 	}
 
 	/**
-	 * Sets the package loss percentage.
+	 * Sets the amount of package loss. 
+	 * A value of 0.0f means no package loss, a value of 1.0f means every packet will be lost.
+	 * Defaults to 0.1f (== 10%).
 	 *
 	 * @param packageLossPercentage the new package loss percentage
 	 */
@@ -132,7 +148,8 @@ public class DatagramWanEmulator {
 	}
 
 	/**
-	 * Gets the max latency.
+	 * Gets the maximum latency between sending from one host to receiving on the other one.
+	 * The latency will vary between minLatency and maxLatency. Defaults to 250 ms.
 	 *
 	 * @return the max latency
 	 */
@@ -141,7 +158,8 @@ public class DatagramWanEmulator {
 	}
 
 	/**
-	 * Sets the max latency.
+	 * Sets the maximum latency between sending from one host to receiving on the other one.
+	 * The latency will vary between minLatency and maxLatency. Defaults to 250 ms.
 	 *
 	 * @param maxLatency the new max latency
 	 */
@@ -149,8 +167,29 @@ public class DatagramWanEmulator {
 		this.maxLatency = maxLatency;
 	}
 
+	
+	/**
+	 * Gets the minimum latency between sending from one host to receiving on the other one.
+	 * The latency will vary between minLatency and maxLatency. Defaults to 100 ms.
+	 *
+	 * @return the min latency
+	 */
+	public int getMinLatency() {
+		return minLatency;
+	}
+
+	/**
+	 * Sets the minimum latency between sending from one host to receiving on the other one.
+	 * The latency will vary between minLatency and maxLatency. Defaults to 100 ms.
+	 *
+	 * @param minLatency the new min latency
+	 */
+	public void setMinLatency(int minLatency) {
+		this.minLatency = minLatency;
+	}
+
 	/** The is running. */
-	private volatile boolean isRunning = true;
+	private volatile boolean isRunning = false;
 	
 	/** The running thread. */
 	private Thread runningThread = null;
@@ -159,37 +198,31 @@ public class DatagramWanEmulator {
 	private final Runnable runnable = new Runnable() {
 		
 		@Override
-		public void run() {
-			try {
+		public void run() { try {
+			
+			while(isRunning) {
+				byte[] bytes = new byte[maxPacketLength];
+				final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
+				emulatorSocket.receive(packet);
 				
-				while(isRunning) {
-					byte[] bytes = new byte[maxPacketLength];
-					final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
-					emulatorSocket.receive(packet);
-					
-					if (socketAddress1.equals(packet.getSocketAddress()))
-						packet.setSocketAddress(socketAddress2);
-					else if (socketAddress2.equals(packet.getSocketAddress()))
-						packet.setSocketAddress(socketAddress1);
-					
-					if (Math.random() >= packageLossPercentage)
-						STPE.schedule(new Runnable() {
-							@Override
-							public void run() {
-								try {
-									emulatorSocket.send(packet);
-								} catch(Exception e) {e.printStackTrace();}
-							}
-						}, (int)(Math.random()*maxLatency), TimeUnit.MILLISECONDS);
-				}
+				if (socketAddressA.equals(packet.getSocketAddress()))
+					packet.setSocketAddress(socketAddressB);
+				else if (socketAddressB.equals(packet.getSocketAddress()))
+					packet.setSocketAddress(socketAddressA);
 				
-				
-			} catch (Exception e) {
-				e.printStackTrace();
-				isRunning = false;
-				runningThread = null;
+				if (Math.random() >= packageLossPercentage)
+					executor.schedule(new Runnable() {
+						
+						@Override public void run() { try {
+							emulatorSocket.send(packet);
+						} catch(Exception e) {e.printStackTrace();}}
+						
+					}, minLatency + (int)(Math.random()* (maxLatency - minLatency)), 
+					TimeUnit.MILLISECONDS);
 			}
-		}
+				
+				
+		} catch (Exception e) { e.printStackTrace(); isRunning = false; runningThread = null;}}
 	};
 	
 	/**
@@ -197,6 +230,7 @@ public class DatagramWanEmulator {
 	 */
 	public void startEmulation() {
 		if (runningThread == null) {
+			isRunning = true;
 			runningThread = new Thread(runnable);
 			runningThread.start();
 		}
@@ -208,8 +242,8 @@ public class DatagramWanEmulator {
 	 * @throws InterruptedException the interrupted exception
 	 */
 	public void stopEmulation() throws InterruptedException {
-		isRunning = false;
 		if (runningThread != null) {
+			isRunning = false;
 			runningThread.join();
 			runningThread = null;
 		}
