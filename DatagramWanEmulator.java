@@ -52,7 +52,7 @@ public class DatagramWanEmulator {
 	/**
 	 * Internally used. Queues up delayed sending of datagram packets
 	 */
-	private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+	private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
 
 	/** The socket address A. */
 	private final InetSocketAddress socketAddressA;
@@ -238,6 +238,7 @@ public class DatagramWanEmulator {
 	 * Let the emulation end and close the associated emulator socket.
 	 */
 	public void stopEmulation() {
+		executor.shutdown();
 		emulatorSocket.close();
 	}
 }
