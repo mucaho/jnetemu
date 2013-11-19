@@ -208,7 +208,8 @@ public class DatagramWanEmulator {
 					executor.schedule(new Runnable() {
 						
 						@Override public void run() { try {
-							emulatorSocket.send(packet);
+							if (!emulatorSocket.isClosed())
+								emulatorSocket.send(packet);
 						} catch(Exception e) {e.printStackTrace();}}
 						
 					}, minLatency + (int)(Math.random()* (maxLatency - minLatency)), 
