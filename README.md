@@ -16,15 +16,9 @@ The generated javadoc can be found on the [__Github Pages__](http://mucaho.githu
 
 Example
 ---------------------
-Here is a short pseudo-code example, the debugging output shows the following characteristics.
-_All of this parameters can be tuned:_
-* Messages get delivered delayed.
-* Messages get delivered out-of-order.
-* Some messages do not get delivered at all.   
-
-
-
 The complete, executable test can be found inside __TestWanEmulator.java__.
+
+Here is a short pseudo-code example:
 ```java
 		// setup the sockets
 		DatagramSocket serverSocket = new DatagramSocket(new InetSocketAddress(...));
@@ -53,5 +47,22 @@ The complete, executable test can be found inside __TestWanEmulator.java__.
 		}
 ```
 
+The debugging output looks similar to this:
+```
+...
+[Client]: sending #92 
+[Server]: recving #78 
+[Server]: recving #79 
+[Client]: sending #93 
+[Client]: sending #94 
+[Server]: recving #75 
+...
+```
 
+The debugging output shows the following characteristics:
+* Messages get delivered __delayed__. (e.g. Client is sending #92, the Server is jut receiving #78)
+* Messages get delivered __out-of-order__. (e.g. The server receives #75 after #79)
+* Some messages do __not get delivered__ at all. (e.g. The whole debugging output should have 200 lines - 
+100 sent + 100 received. In this case the line count was 189, that means some messages were not received)
 
+_All of this parameters can be tuned_.
