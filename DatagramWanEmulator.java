@@ -90,20 +90,20 @@ public class DatagramWanEmulator {
 	 * a value of 1.0f means every packet will be lost. 
 	 * Defaults to 0.1f (10%).
 	 */
-	private float packageLossPercentage = 0.1f;
+	private volatile float packageLossPercentage = 0.1f;
 	/**
 	 * The maximum latency between sending from one host to receiving on the other one.
 	 * The latency will vary between minLatency and maxLatency.
 	 * Defaults to 250 ms.
 	 */
-	private int maxLatency = 250;
+	private volatile int maxLatency = 250;
 	
 	/**
 	 * The minimum latency between sending from one host to receiving on the other one.
 	 * The latency will vary between minLatency and maxLatency.
 	 * Defaults to 100 ms.
 	 */
-	private int minLatency = 100;
+	private volatile int minLatency = 100;
 	
 	/**
 	 * Gets the maximum size of incoming / outcoming datagram packets (in bytes).
