@@ -21,7 +21,6 @@
  * THE SOFTWARE.
  */
 
-package util;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -58,10 +57,24 @@ public class DatagramWanEmulator {
 	private final InetSocketAddress socketAddressA;
 	
 	/** The socket address B. */
-	private final InetSocketAddress socketAddressB;
+	private InetSocketAddress socketAddressB;
 	
 	/** The emulator socket. */
 	private DatagramSocket emulatorSocket;
+
+	/**
+	 * Construct a new DatagramWanEmulator. This will automatically create a new socket 
+	 * bound to the specified emulatorAddress. The socketAddressB will be captured the
+	 * first time a packet is sent from socketAddressB.
+	 * 
+	 * @param emulatorAddress	the emulator address
+	 * @param socketAddressA	one socket address
+	 * @throws SocketException	the socket exception
+	 */
+	public DatagramWanEmulator(InetSocketAddress emulatorAddress, InetSocketAddress socketAddressA) 
+		throws SocketException {
+		this(emulatorAddress, socketAddressA, null);
+	}
 
 	/**
 	 * Construct a new DatagramWanEmulator. This will automatically create a new socket 
@@ -90,7 +103,15 @@ public class DatagramWanEmulator {
 	 * a value of 1.0f means every packet will be lost. 
 	 * Defaults to 0.1f (10%).
 	 */
-	private volatile float packageLossPercentage = 0.1f;
+	private volatile float packageLoss = 0.1f;
+
+	/**
+	 * The chance of a packet being duplicated. A value of 0.0f means no
+	 * packets will be duplicated, a value of 1.0f means every packet will
+	 * be duplicated infinitely.
+	 * Defaults to 0.03f (3%).
+	 */
+	private volatile float packageDuplication = 0.03f;
 	/**
 	 * The maximum latency between sending from one host to receiving on the other one.
 	 * The latency will vary between minLatency and maxLatency.
@@ -132,8 +153,8 @@ public class DatagramWanEmulator {
 	 *
 	 * @return the package loss percentage
 	 */
-	public float getPackageLossPercentage() {
-		return packageLossPercentage;
+	public float getPackageLoss() {
+		return packageLoss;
 	}
 
 	/**
@@ -141,10 +162,31 @@ public class DatagramWanEmulator {
 	 * A value of 0.0f means no package loss, a value of 1.0f means every packet will be lost.
 	 * Defaults to 0.1f (== 10%).
 	 *
-	 * @param packageLossPercentage the new package loss percentage
+	 * @param percentage the new package loss percentage
 	 */
-	public void setPackageLossPercentage(float packageLossPercentage) {
-		this.packageLossPercentage = packageLossPercentage;
+	public void setPackageLoss(float percentage) {
+		this.packageLoss = percentage;
+	}
+	
+	
+	/**
+	 * Gets the chance of a packet being duplicated. 
+	 * A value of 0.0f means no packets will be duplicated, 
+	 * a value of 1.0f means every packet will be duplicated infinitely.
+	 * Defaults to 0.03f (3%).
+	 */
+	public float getPackageDuplication() {
+		return packageDuplication;
+	}
+
+	/**
+	 * Sets the chance of a packet being duplicated. 
+	 * A value of 0.0f means no packets will be duplicated, 
+	 * a value of 1.0f means every packet will be duplicated infinitely.
+	 * Defaults to 0.03f (3%).
+	 */
+	public void setPackageDuplication(float packageDuplication) {
+		this.packageDuplication = packageDuplication;
 	}
 
 	/**
@@ -199,21 +241,29 @@ public class DatagramWanEmulator {
 				final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
 				emulatorSocket.receive(packet);
 				
+				if ((socketAddressB == null) && 
+						!(socketAddressA.equals(packet.getSocketAddress())))
+					socketAddressB = (InetSocketAddress) packet.getSocketAddress();
+				
 				if (socketAddressA.equals(packet.getSocketAddress()))
 					packet.setSocketAddress(socketAddressB);
 				else if (socketAddressB.equals(packet.getSocketAddress()))
 					packet.setSocketAddress(socketAddressA);
 				
-				if (Math.random() >= packageLossPercentage)
-					executor.schedule(new Runnable() {
-						
-						@Override public void run() { try {
-							if (!emulatorSocket.isClosed())
-								emulatorSocket.send(packet);
-						} catch(Exception e) {e.printStackTrace();}}
-						
-					}, minLatency + (int)(Math.random()* (maxLatency - minLatency)), 
-					TimeUnit.MILLISECONDS);
+				do {
+					
+					if (Math.random() >= packageLoss)
+						executor.schedule(new Runnable() {
+							
+							@Override public void run() { try {
+								if (!emulatorSocket.isClosed())
+									emulatorSocket.send(packet);
+							} catch(Exception e) {e.printStackTrace();}}
+							
+						}, minLatency + (int)(Math.random()* (maxLatency - minLatency)), 
+						TimeUnit.MILLISECONDS);
+					
+				} while (Math.random() < packageDuplication);
 			}
 				
 				

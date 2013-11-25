@@ -1,4 +1,4 @@
-package util;
+
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -28,7 +28,7 @@ public class TestWanEmulator {
 		DatagramSocket clientSocket = new DatagramSocket(clientAddress);
 		// setup emulator socket
 		DatagramWanEmulator emu = 
-			new DatagramWanEmulator(emulatorAddress, serverAddress, clientAddress);
+			new DatagramWanEmulator(emulatorAddress, serverAddress);
 	
 		
 		
