@@ -38,8 +38,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The emulator will introduce package latency, jitter, loss and duplication.
  * Then it will send the packets to the receiving socket.
  * <p>
- * This class can be instantiated using the respective addresses. Use the appropriate methods
- * to start and stop the emulation.
+ * This class can be instantiated using the respective
+ * {@link DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) constructor}.
+ * Use the appropriate methods to {@link DatagramWanEmulator#startEmulation() start} and
+ * {@link DatagramWanEmulator#stopEmulation() stop} the emulation.
  * The specific emulation parameters can be tuned with the appropriate getters / setters,
  * before starting the emulation or while emulation is already active.
  * 
@@ -48,38 +50,24 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DatagramWanEmulator {
     /**
-     * Internally used. Number of active emulators.
+     * Internally used. Number of active emulator instances.
      */
     private final static AtomicInteger emulatorCount = new AtomicInteger(0);
 
     /**
      * Internally used. Queues up delayed sending of datagram packets
      */
-    private static ScheduledThreadPoolExecutor executor;
+    private static ScheduledThreadPoolExecutor executor = null;
 
 
     /** The socket address A. */
     private final SocketAddress socketAddressA;
 
     /** The socket address B. */
-    private SocketAddress socketAddressB;
+    private final SocketAddress socketAddressB;
 
     /** The emulator socket. */
-    private DatagramSocket emulatorSocket;
-
-    /**
-     * Construct a new DatagramWanEmulator. This will automatically create a new socket
-     * bound to the specified emulatorAddress. The socketAddressB will be captured the
-     * first time a packet is sent from socketAddressB to socketAddressA through this emulator.
-     *
-     * @param emulatorAddress	the emulator address
-     * @param socketAddressA	one socket address
-     * @throws SocketException	the socket exception
-     */
-    public DatagramWanEmulator(SocketAddress emulatorAddress, SocketAddress socketAddressA)
-        throws SocketException {
-        this(emulatorAddress, socketAddressA, null);
-    }
+    private final DatagramSocket emulatorSocket;
 
     /**
      * Construct a new DatagramWanEmulator. This will automatically create a new socket
@@ -99,7 +87,7 @@ public class DatagramWanEmulator {
     }
 
     /**
-     * The maximum size of incoming / outcoming datagram packets (in bytes).
+     * The maximum size of incoming / outgoing datagram packets (in bytes).
      * Defaults to 1024.
      */
     private int maxPacketLength = 1024;
@@ -132,7 +120,7 @@ public class DatagramWanEmulator {
     private volatile int minLatency = 100;
 
     /**
-     * Gets the maximum size of incoming / outcoming datagram packets (in bytes).
+     * Gets the maximum size of incoming / outgoing datagram packets (in bytes).
      * Defaults to 1024.
      *
      * @return the max packet length
@@ -142,7 +130,7 @@ public class DatagramWanEmulator {
     }
 
     /**
-     * Sets the maximum size of incoming / outcoming datagram packets (in bytes).
+     * Sets the maximum size of incoming / outgoing datagram packets (in bytes).
      * Defaults to 1024.
      *
      * @param maxPacketLength the new max packet length
@@ -245,10 +233,6 @@ public class DatagramWanEmulator {
                 byte[] bytes = new byte[maxPacketLength];
                 final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
                 emulatorSocket.receive(packet);
-
-                if ((socketAddressB == null) &&
-                        !(socketAddressA.equals(packet.getSocketAddress())))
-                    socketAddressB = packet.getSocketAddress();
 
                 if (socketAddressA.equals(packet.getSocketAddress()))
                     packet.setSocketAddress(socketAddressB);
