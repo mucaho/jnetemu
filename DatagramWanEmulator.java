@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>
  * In order to use the emulator, you send the {@link DatagramPacket}s directly 
  * to the emulator's {@link java.net.SocketAddress} instead of sending them to the receiver 
- * {@link java.net.SocketAddress}. 
+ * {@link java.net.SocketAddress}.
  * The emulator will introduce package latency, jitter, loss and duplication.
  * Then it will send the packets to the receiving socket.
  * <p>
@@ -44,7 +44,40 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link DatagramWanEmulator#stopEmulation() stop} the emulation.
  * The specific emulation parameters can be tuned with the appropriate getters / setters,
  * before starting the emulation or while emulation is already active.
- * 
+ * <p>
+ * There are multiple emulator configuration options available,
+ * some possibilities are illustrated in the following figures:
+ * <br>
+ * Emulator sitting on PeerA, emulating network conditions for outgoing traffic only.
+ * <pre>
+ * ╔══════════╗      ╔═════╗      ╔═════════╗
+ * ║ A -> EMU ║ ---> ║     ║ ---> ║    A    ║
+ * ║ P        ║      ║ ??? ║      ║    P    ║
+ * ║ P  <--   ║ <--- ║     ║ <--- ║    P    ║
+ * ╚══════════╝      ╚═════╝      ╚═════════╝
+ *    PeerA          Network         PeerB
+ * </pre>
+ * <br>
+ * Emulator sitting on PeerA, emulating network conditions for both outgoing and incoming traffic.
+ * <pre>
+ * ╔═════════╗      ╔═════╗      ╔═════════╗
+ * ║ A     E ║      ║     ║      ║    A    ║
+ * ║ P <-> M ║ <--> ║ ??? ║ <--> ║    P    ║
+ * ║ P     U ║      ║     ║      ║    P    ║
+ * ╚═════════╝      ╚═════╝      ╚═════════╝
+ *    PeerA         Network         PeerB
+ * </pre>
+ * <br>
+ * One emulator sitting on each peer, emulating network conditions for its outgoing traffic respectively.
+ * <pre>
+ * ╔══════════╗      ╔═════╗      ╔══════════╗
+ * ║ A -> EMU ║ ---> ║     ║ ---> ║    --> A ║
+ * ║ P        ║      ║ ??? ║      ║        P ║
+ * ║ P <--    ║ <--- ║     ║ <--- ║ EMU <- P ║
+ * ╚══════════╝      ╚═════╝      ╚══════════╝
+ *    PeerA          Network         PeerB
+ * </pre>
+ *
  * @author mucaho
  *
  */
