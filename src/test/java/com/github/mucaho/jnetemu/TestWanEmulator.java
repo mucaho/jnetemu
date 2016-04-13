@@ -3,6 +3,8 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+package com.github.mucaho.jnetemu;
+
 import java.net.*;
 import java.nio.ByteBuffer;
 

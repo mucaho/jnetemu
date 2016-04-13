@@ -21,6 +21,8 @@
  * THE SOFTWARE.
  */
 
+package com.github.mucaho.jnetemu;
+
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
