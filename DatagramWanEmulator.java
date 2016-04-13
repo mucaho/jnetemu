@@ -25,10 +25,7 @@ import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -100,11 +97,13 @@ public class DatagramWanEmulator {
      * That's the minimum supported MTU for IPv4 ({@code 576} B), minus the maximum IPv4 header size ({@code 60} B)
      * and minus the UDP header size ({@code 8} B).
      */
-    public static int MINIMUM__PACKET_SIZE = 576 - 60 - 8;
+    public final static int MINIMUM__PACKET_SIZE = 576 - 60 - 8;
     /**
      * Size in bytes of the usually supported MTU for IPv4.
      */
-    public static int DEFAULT_PACKET_SIZE = 1500;
+    public final static int DEFAULT_PACKET_SIZE = 1500;
+    // RNG
+    private final static Random random = new Random();
     // incremented on instance creation; decremented on instance destruction
     private final static AtomicInteger emulatorCount = new AtomicInteger(0);
     // setup on first instance creation; torn-down on last instance destruction
@@ -185,133 +184,158 @@ public class DatagramWanEmulator {
     //////////////////
 
     /**
-     * The chance of a packet being lost. A value of {@code 0.0f} means no packet loss,
-     * a value of {@code 1.0f} means every packet will be lost.
-     * Defaults to {@code 0.1f} ({@code 10%}).
+     * The chance of a packet being lost. A value of {@code 0.00f} means no packet loss,
+     * a value of {@code 1.00f} means every packet will be lost.
+     * Defaults to {@code 0.10f} ({@code 10%}).
      */
     private volatile float loss = 0.1f;
 
     /**
-     * The chance of a packet being duplicated. A value of {@code 0.0f} means no
-     * packets will be duplicated, a value of {@code 1.0f} means every packet will
+     * The chance of a packet being duplicated. A value of {@code 0.00f} means no
+     * packets will be duplicated, a value of {@code 1.00f} means every packet will
      * be duplicated infinitely.
      * Defaults to {@code 0.03f} ({@code 3%}).
      */
     private volatile float duplication = 0.03f;
 
     /**
-     * The maximum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 250 ms}.
+     * The base delay between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code 175 ms}.
      */
-    private volatile int maxLatency = 250;
+    private volatile int delay = 175;
 
     /**
-     * The minimum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 100 ms}.
+     * The delay jitter between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code +/- 75 ms}.
      */
-    private volatile int minLatency = 100;
-
+    private volatile int jitter = 75;
 
     /**
-     * Get the chance of a packet being lost. A value of {@code 0.0f} means no packet loss,
-     * a value of {@code 1.0f} means every packet will be lost.
-     * Defaults to {@code 0.1f} ({@code 10%}).
+     * Get the chance of a packet being lost. A value of {@code 0.00f} means no packet loss,
+     * a value of {@code 1.00f} means every packet will be lost.
+     * Defaults to {@code 0.10f} ({@code 10%}).
      *
      * @return the packet loss fraction
      */
-    public float getLoss() {
+    public float loss() {
         return loss;
     }
 
     /**
      * Set the chance of a packet being lost. A value of {@code 0.0f} means no packet loss,
      * a value of {@code 1.0f} means every packet will be lost.
-     * Defaults to {@code 0.1f} ({@code 10%}).
+     * Defaults to {@code 0.10f} ({@code 10%}).
      *
      * @param loss the new packet loss fraction
      */
-    public void setLoss(float loss) {
+    public void loss(float loss) {
         this.loss = loss;
     }
 
     /**
-     * Get the chance of a packet being duplicated. A value of {@code 0.0f} means no
-     * packets will be duplicated, a value of {@code 1.0f} means every packet will
+     * Get the chance of a packet being duplicated. A value of {@code 0.00f} means no
+     * packets will be duplicated, a value of {@code 1.00f} means every packet will
      * be duplicated infinitely.
      * Defaults to {@code 0.03f} ({@code 3%}).
      *
      * @return the packet duplication fraction
      */
-    public float getDuplication() {
+    public float duplication() {
         return duplication;
     }
 
     /**
-     * Set the chance of a packet being duplicated. A value of {@code 0.0f} means no
-     * packets will be duplicated, a value of {@code 1.0f} means every packet will
+     * Set the chance of a packet being duplicated. A value of {@code 0.00f} means no
+     * packets will be duplicated, a value of {@code 1.00f} means every packet will
      * be duplicated infinitely.
      * Defaults to {@code 0.03f} ({@code 3%}).
      *
      * @param duplication the new packet duplication fraction
      */
-    public void setDuplication(float duplication) {
+    public void duplication(float duplication) {
         this.duplication = duplication;
     }
 
+
     /**
-     * Get the maximum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 250 ms}.
+     * Get the base delay between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code 175 ms}.
      *
-     * @return the max latency in ms
+     * @return the base delay in ms
      */
-    public int getMaxLatency() {
-        return maxLatency;
+    public int delay() {
+        return delay;
     }
 
     /**
-     * Set the maximum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 250 ms}.
+     * Set the base delay between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code 175 ms}.
      *
-     * @param maxLatency the new max latency in ms
+     * @param delay the new base delay in ms
      */
-    public void setMaxLatency(int maxLatency) {
-        this.maxLatency = maxLatency;
-    }
-
-
-    /**
-     * Get the minimum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 100 ms}.
-     *
-     * @return the min latency in ms
-     */
-    public int getMinLatency() {
-        return minLatency;
+    public void delay(int delay) {
+        this.delay = delay;
     }
 
     /**
-     * Set the minimum latency between sending from one peer to receiving on the other one.
-     * The latency will randomly vary between {@code minLatency} and {@code maxLatency}.
-     * Defaults to {@code 100 ms}.
+     * Get the delay jitter between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code +/- 75 ms}.
      *
-     * @param minLatency the new min latency in ms
+     * @return the delay jitter in ms
      */
-    public void setMinLatency(int minLatency) {
-        this.minLatency = minLatency;
+    public int jitter() {
+        return jitter;
     }
 
-
-
+    /**
+     * Set the delay jitter between sending from one peer to receiveing on the other one.
+     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
+     * Defaults to {@code +/- 75 ms}.
+     *
+     * @param jitter the new delay jitter in ms
+     */
+    public void jitter(int jitter) {
+        this.jitter = jitter;
+    }
 
     ////////////////////////
     /// INSTANCE METHODS ///
     ////////////////////////
 
+    /**
+     * Compute network conditions.
+     * <br>
+     * This method will be called once per incoming packet and computes the network conditions for the outgoing packet.
+     * <br>
+     * May be overridden in subclasses to specify custom behaviour.
+     * @param latencies a list that should be filled with zero or more latencies
+     *                  that will be applied to the incoming packet:
+     *                  <ul>
+     *                  <li>A zero-length list indicates packet gets dropped.</li>
+     *                  <li>A list with a single element indicates the latency to apply to the incoming packet.</li>
+     *                  <li>A list with {@code n} elements indicates that the packet will be duplicated {@code n-1} times
+     *                  with the respective latencies applied to those duplicates.</li>
+     *                  </ul>
+     */
+    protected List<Integer> computeNetworkConditions(List<Integer> latencies) {
+        do {
+            if (random.nextFloat() >= loss)
+                latencies.add(delay - jitter + random.nextInt(jitter * 2 + 1));
+        } while (random.nextFloat() < duplication);
+
+        return latencies;
+    }
+
+    private final List<Integer> latencies = new ArrayList<Integer>();
+    private List<Integer> computeNetworkConditions() {
+        latencies.clear();
+        return computeNetworkConditions(latencies);
+    }
 
     /**
      * Read from channel to buffers.
@@ -347,14 +371,11 @@ public class DatagramWanEmulator {
         }
 
         PacketId packetId = new PacketId();
-        do {
-            if (Math.random() >= loss) {
-                packetId.count++;
-                QueuedPacket queued = new QueuedPacket(buffer, receiverAddress, packetId,
-                        timeNow + minLatency + (int) (Math.random() * (maxLatency - minLatency)));
-                queuedPackets.offer(queued);
-            }
-        } while (Math.random() < duplication);
+        for (Integer latency : computeNetworkConditions()) {
+            packetId.count++;
+            QueuedPacket queued = new QueuedPacket(buffer, receiverAddress, packetId, timeNow + latency);
+            queuedPackets.offer(queued);
+        }
 
         if (packetId.count == 0) {
             buffer.clear();
@@ -419,7 +440,7 @@ public class DatagramWanEmulator {
 
                     try {
                         // check which buffers are ready to be written
-                        for (SelectionKey key: selector.keys()) {
+                        for (SelectionKey key : selector.keys()) {
                             DatagramWanEmulator emulator = (DatagramWanEmulator) key.attachment();
                             if (emulator.needsWriting(timeNow))
                                 // add OP_WRITE as interestOp
@@ -428,7 +449,7 @@ public class DatagramWanEmulator {
 
                         // do reading and writing on ready channels
                         selector.selectNow();
-                        Iterator<SelectionKey>keyIterator = selector.selectedKeys().iterator();
+                        Iterator<SelectionKey> keyIterator = selector.selectedKeys().iterator();
                         while (keyIterator.hasNext()) {
                             SelectionKey key = keyIterator.next();
 
