@@ -32,21 +32,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A convenience class for debugging UDP communication. The DatagramWanEmulator sits between
- * two specified {@link DatagramSocket}s and introduces packet-latency, -jitter, -loss and -duplication
- * between these two sockets.
+ * two specified {@link DatagramSocket}s and emulates various network conditions.
  * <p>
  * In order to use the emulator, you send the {@link DatagramPacket}s directly 
  * to the emulator's {@link java.net.SocketAddress} instead of sending them to the receiver 
  * {@link java.net.SocketAddress}.
- * The emulator will then apply packet latency, jitter, loss and duplication.
+ * The emulator will then apply various network conditions,
  * before sending those packets to the receiver {@link java.net.SocketAddress}.
  * <p>
- * This class can be instantiated using the respective
+ * This class can be partially instantiated using the respective
  * {@link DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) constructor}.
  * Use the appropriate methods to {@link DatagramWanEmulator#startEmulation() start} and
  * {@link DatagramWanEmulator#stopEmulation() stop} the emulation.
- * The specific emulation parameters can be tuned with the appropriate getters / setters,
- * before starting the emulation or while emulation is already active.
+ * The actual computation of {@link #computeNetworkConditions(List, long) network conditions}
+ * is given by subclasses of this abstract class.
  * <p>
  * Internally, this emulator uses a single thread for all emulator instances
  * by leveraging {@link java.nio NIO} selectors &amp; non-blocking channels.
@@ -87,7 +86,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author mucaho
  *
  */
-public class DatagramWanEmulator {
+public abstract class DatagramWanEmulator {
 
     /////////////////////
     /// STATIC FIELDS ///
@@ -104,8 +103,6 @@ public class DatagramWanEmulator {
      * Size in bytes of the usually supported MTU for IPv4.
      */
     public final static int DEFAULT_PACKET_SIZE = 1500;
-    // RNG
-    private final static Random random = new Random();
     // incremented on instance creation; decremented on instance destruction
     private final static AtomicInteger emulatorCount = new AtomicInteger(0);
     // setup on first instance creation; torn-down on last instance destruction
@@ -179,142 +176,17 @@ public class DatagramWanEmulator {
     }
 
 
-
-
-    //////////////////
-    /// PROPERTIES ///
-    //////////////////
-
-    /**
-     * The chance of a packet being lost. A value of {@code 0.00f} means no packet loss,
-     * a value of {@code 1.00f} means every packet will be lost.
-     * Defaults to {@code 0.10f} ({@code 10%}).
-     */
-    private volatile float loss = 0.1f;
-
-    /**
-     * The chance of a packet being duplicated. A value of {@code 0.00f} means no
-     * packets will be duplicated, a value of {@code 1.00f} means every packet will
-     * be duplicated infinitely.
-     * Defaults to {@code 0.03f} ({@code 3%}).
-     */
-    private volatile float duplication = 0.03f;
-
-    /**
-     * The base delay between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code 175 ms}.
-     */
-    private volatile int delay = 175;
-
-    /**
-     * The delay jitter between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code +/- 75 ms}.
-     */
-    private volatile int jitter = 75;
-
-    /**
-     * Get the chance of a packet being lost. A value of {@code 0.00f} means no packet loss,
-     * a value of {@code 1.00f} means every packet will be lost.
-     * Defaults to {@code 0.10f} ({@code 10%}).
-     *
-     * @return the packet loss fraction
-     */
-    public float loss() {
-        return loss;
-    }
-
-    /**
-     * Set the chance of a packet being lost. A value of {@code 0.0f} means no packet loss,
-     * a value of {@code 1.0f} means every packet will be lost.
-     * Defaults to {@code 0.10f} ({@code 10%}).
-     *
-     * @param loss the new packet loss fraction
-     */
-    public void loss(float loss) {
-        this.loss = loss;
-    }
-
-    /**
-     * Get the chance of a packet being duplicated. A value of {@code 0.00f} means no
-     * packets will be duplicated, a value of {@code 1.00f} means every packet will
-     * be duplicated infinitely.
-     * Defaults to {@code 0.03f} ({@code 3%}).
-     *
-     * @return the packet duplication fraction
-     */
-    public float duplication() {
-        return duplication;
-    }
-
-    /**
-     * Set the chance of a packet being duplicated. A value of {@code 0.00f} means no
-     * packets will be duplicated, a value of {@code 1.00f} means every packet will
-     * be duplicated infinitely.
-     * Defaults to {@code 0.03f} ({@code 3%}).
-     *
-     * @param duplication the new packet duplication fraction
-     */
-    public void duplication(float duplication) {
-        this.duplication = duplication;
-    }
-
-
-    /**
-     * Get the base delay between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code 175 ms}.
-     *
-     * @return the base delay in ms
-     */
-    public int delay() {
-        return delay;
-    }
-
-    /**
-     * Set the base delay between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code 175 ms}.
-     *
-     * @param delay the new base delay in ms
-     */
-    public void delay(int delay) {
-        this.delay = delay;
-    }
-
-    /**
-     * Get the delay jitter between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code +/- 75 ms}.
-     *
-     * @return the delay jitter in ms
-     */
-    public int jitter() {
-        return jitter;
-    }
-
-    /**
-     * Set the delay jitter between sending from one peer to receiveing on the other one.
-     * The actual delay will randomly vary between {@code baseDelay +/- jitter}.
-     * Defaults to {@code +/- 75 ms}.
-     *
-     * @param jitter the new delay jitter in ms
-     */
-    public void jitter(int jitter) {
-        this.jitter = jitter;
-    }
-
     ////////////////////////
     /// INSTANCE METHODS ///
     ////////////////////////
 
     /**
-     * Compute network conditions.
+     * Compute network conditions. Actual implementation given in subclasses.
      * <br>
      * This method will be called once per incoming packet and computes the network conditions for the outgoing packet.
-     * <br>
-     * May be overridden in subclasses to specify custom behaviour.
+     * At any time it is guaranteed to be called from a single thread only,
+     * thus implementing classes should not worry about threading issues.
+     *
      * @param latencies a list that should be filled with zero or more latencies
      *                  that will be applied to the incoming packet:
      *                  <ul>
@@ -323,20 +195,15 @@ public class DatagramWanEmulator {
      *                  <li>A list with {@code n} elements indicates that the packet will be duplicated {@code n-1} times
      *                  with the respective latencies applied to those duplicates.</li>
      *                  </ul>
+     * @param timeNow the current low-resolution system time in {@code ms},
+     *                that should be used by all time-dependent computations
      */
-    protected List<Integer> computeNetworkConditions(List<Integer> latencies) {
-        do {
-            if (random.nextFloat() >= loss)
-                latencies.add(delay - jitter + random.nextInt(jitter * 2 + 1));
-        } while (random.nextFloat() < duplication);
-
-        return latencies;
-    }
+    protected abstract List<Integer> computeNetworkConditions(List<Integer> latencies, long timeNow);
 
     private final List<Integer> latencies = new ArrayList<Integer>();
-    private List<Integer> computeNetworkConditions() {
+    private List<Integer> computeNetworkConditions(long timeNow) {
         latencies.clear();
-        return computeNetworkConditions(latencies);
+        return computeNetworkConditions(latencies, timeNow);
     }
 
     /**
@@ -373,7 +240,7 @@ public class DatagramWanEmulator {
         }
 
         PacketId packetId = new PacketId();
-        for (Integer latency : computeNetworkConditions()) {
+        for (Integer latency : computeNetworkConditions(timeNow)) {
             packetId.count++;
             QueuedPacket queued = new QueuedPacket(buffer, receiverAddress, packetId, timeNow + latency);
             queuedPackets.offer(queued);

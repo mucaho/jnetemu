@@ -24,7 +24,7 @@ public class TestWanEmulator {
         DatagramSocket clientSocket = new DatagramSocket(clientAddress);
         // setup emulator socket
         DatagramWanEmulator emu =
-            new DatagramWanEmulator(emulatorAddress, serverAddress, clientAddress);
+            new SimpleWanEmulator(emulatorAddress, serverAddress, clientAddress);
 
 
 
