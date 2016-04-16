@@ -34,7 +34,7 @@ import java.util.Random;
  * It introduces packet-latency, -jitter, -loss and -duplication to incoming packets, before relaying them.
  * <br>
  * The specific emulation parameters can be tuned with the appropriate getters / setters,
- * before {@link DatagramWanEmulator#startEmulation() starting the emulation} or while emulation is already active.
+ * before {@link com.github.mucaho.jnetemu.DatagramWanEmulator#startEmulation() starting the emulation} or while emulation is already active.
  */
 public class SimpleWanEmulator extends DatagramWanEmulator {
 
@@ -43,12 +43,11 @@ public class SimpleWanEmulator extends DatagramWanEmulator {
     /**
      * Construct a new {@code SimpleWanEmulator}. This will automatically create a new socket
      * bound to the specified {@code emulatorAddress},
-     * with {@code maxPacketSize} set to {@link DatagramWanEmulator#MINIMUM__PACKET_SIZE MINIMUM__PACKET_SIZE}.
+     * with {@code maxPacketSize} set to {@link com.github.mucaho.jnetemu.DatagramWanEmulator#MINIMUM__PACKET_SIZE MINIMUM__PACKET_SIZE}.
      *
      * @param emulatorAddress the emulator address
      * @param socketAddressA  one socket address
      * @param socketAddressB  the other socket address
-     *
      * @see DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress)
      */
     public SimpleWanEmulator(SocketAddress emulatorAddress, SocketAddress socketAddressA, SocketAddress socketAddressB) {
@@ -63,7 +62,6 @@ public class SimpleWanEmulator extends DatagramWanEmulator {
      * @param socketAddressA  one socket address
      * @param socketAddressB  the other socket address
      * @param maxPacketSize   the maximum size of incoming / outgoing datagram packets (in bytes).
-     *
      * @see DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress, int)
      */
     public SimpleWanEmulator(SocketAddress emulatorAddress, SocketAddress socketAddressA, SocketAddress socketAddressB, int maxPacketSize) {
@@ -196,6 +194,7 @@ public class SimpleWanEmulator extends DatagramWanEmulator {
     }
 
 
+    /** {@inheritDoc} */
     @Override
     protected void computeNetworkConditions(long timeNow, Collection<? extends Scheduled> scheduled, List<Long> scheduledTimes) {
         do {

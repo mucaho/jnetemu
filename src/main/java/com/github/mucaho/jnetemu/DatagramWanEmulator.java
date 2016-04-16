@@ -32,18 +32,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A convenience class for debugging UDP communication. The DatagramWanEmulator sits between
- * two specified {@link DatagramSocket}s and emulates various network conditions.
+ * two specified {@link java.net.DatagramSocket}s and emulates various network conditions.
  * <p>
- * In order to use the emulator, you send the {@link DatagramPacket}s directly 
- * to the emulator's {@link java.net.SocketAddress} instead of sending them to the receiver 
+ * In order to use the emulator, you send the {@link java.net.DatagramPacket}s directly
+ * to the emulator's {@link java.net.SocketAddress} instead of sending them to the receiver
  * {@link java.net.SocketAddress}.
  * The emulator will then apply various network conditions,
  * before sending those packets to the receiver {@link java.net.SocketAddress}.
  * <p>
  * This class can be partially instantiated using the respective
- * {@link DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) constructor}.
- * Use the appropriate methods to {@link DatagramWanEmulator#startEmulation() start} and
- * {@link DatagramWanEmulator#stopEmulation() stop} the emulation.
+ * {@link com.github.mucaho.jnetemu.DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) constructor}.
+ * Use the appropriate methods to {@link com.github.mucaho.jnetemu.DatagramWanEmulator#startEmulation() start} and
+ * {@link com.github.mucaho.jnetemu.DatagramWanEmulator#stopEmulation() stop} the emulation.
  * The actual computation of {@link #computeNetworkConditions(long, Collection, List) network conditions}
  * is given by subclasses of this abstract class.
  * <p>
@@ -54,36 +54,34 @@ import java.util.concurrent.atomic.AtomicInteger;
  * some possibilities are illustrated in the following figures:
  * <br>
  * Emulator sitting on PeerA, emulating network conditions for outgoing traffic only.
- * <pre>
+ * <pre>{@literal
  * ╔══════════╗      ╔═════╗      ╔═════════╗
  * ║ A -> EMU ║ ---> ║     ║ ---> ║    A    ║
  * ║ P        ║      ║ ??? ║      ║    P    ║
  * ║ P  <--   ║ <--- ║     ║ <--- ║    P    ║
  * ╚══════════╝      ╚═════╝      ╚═════════╝
  *    PeerA          Network         PeerB
- * </pre>
+ * }</pre>
  * <br>
  * Emulator sitting on PeerA, emulating network conditions for both outgoing and incoming traffic.
- * <pre>
+ * <pre>{@literal
  * ╔═════════╗      ╔═════╗      ╔═════════╗
  * ║ A     E ║      ║     ║      ║    A    ║
  * ║ P <-> M ║ <--> ║ ??? ║ <--> ║    P    ║
  * ║ P     U ║      ║     ║      ║    P    ║
  * ╚═════════╝      ╚═════╝      ╚═════════╝
  *    PeerA         Network         PeerB
- * </pre>
+ * }</pre>
  * <br>
  * One emulator sitting on each peer, emulating network conditions for its outgoing traffic respectively.
- * <pre>
+ * <pre>{@literal
  * ╔══════════╗      ╔═════╗      ╔══════════╗
  * ║ A -> EMU ║ ---> ║     ║ ---> ║    --> A ║
  * ║ P        ║      ║ ??? ║      ║        P ║
  * ║ P <--    ║ <--- ║     ║ <--- ║ EMU <- P ║
  * ╚══════════╝      ╚═════╝      ╚══════════╝
  *    PeerA          Network         PeerB
- * </pre>
- *
- * @author mucaho
+ * }</pre>
  *
  */
 public abstract class DatagramWanEmulator {
@@ -96,11 +94,11 @@ public abstract class DatagramWanEmulator {
      * Minimum payload size in bytes of an UDP datagram that will not cause fragmentation in the IP layer.
      * <p>
      * That's the minimum supported MTU for IPv4 ({@code 576} B), minus the maximum IPv4 header size ({@code 60} B)
-     * and minus the UDP header size ({@code 8} B).
+     * and minus the UDP header size ({@code 8} B). Defaults to {@value} B.
      */
     public final static int MINIMUM__PACKET_SIZE = 576 - 60 - 8;
     /**
-     * Size in bytes of the usually supported MTU for IPv4.
+     * Size in bytes of the usually supported MTU for IPv4. Defaults to {@value} B.
      */
     public final static int DEFAULT_PACKET_SIZE = 1500;
     // incremented on instance creation; decremented on instance destruction
@@ -370,8 +368,8 @@ public abstract class DatagramWanEmulator {
      *
      * @throws ClosedChannelException if the current instance has already been stopped by
      * {@link #stopEmulation() stopEmulation()}. Create a new
-     * {@link DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) instance} instead.
-     * @throws IOException if there was some other I/O error
+     * {@link com.github.mucaho.jnetemu.DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) instance} instead.
+     * @throws java.io.IOException if there was some other I/O error
      */
     public void startEmulation() throws IOException {
         if (datagramChannel != null && !datagramChannel.isOpen())
@@ -398,8 +396,8 @@ public abstract class DatagramWanEmulator {
     /**
      * Stop the emulation between the two sockets and close the associated emulator socket.
      *
-     * @throws InterruptedException if the current instance is interrupted while shutting down last emulation
-     * @throws IOException if there was some other I/O error
+     * @throws java.lang.InterruptedException if the current instance is interrupted while shutting down last emulation
+     * @throws java.io.IOException if there was some other I/O error
      */
     public void stopEmulation() throws InterruptedException, IOException {
         // destroy the old selectionThread if this is was the last emulator instance
@@ -430,6 +428,12 @@ public abstract class DatagramWanEmulator {
         private int count = 0;
     }
 
+    /**
+     * Interface for handling scheduled objects, that should be processed at a given time.
+     * <br>
+     * The time is represented as the difference in {@code ms},
+     * between the time this object is ready to be processed and midnight, 01.01.1970 UTC.
+     */
     public interface Scheduled extends Comparable<Scheduled> {
         /**
          * Retrieve the time this object will be ready to be processed.
