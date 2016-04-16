@@ -1,19 +1,19 @@
-Java datagrams in emulated WAN
-======================
+WAN emulation for UDP Datagrams
+===============================
 
-Java utility for emulating simple network characteristics found in WANs (delay, jitter, package loss, 
-package duplication).   
-This is a convenience class for debugging UDP communication. The DatagramWanEmulator sits between
-two specified DatagramSockets and introduces latency, jitter and package loss 
-between these two sockets.
+Java 1.6+ utility for emulating simple network characteristics found in WANs.   
+The DatagramWanEmulator sits between two specified DatagramSockets and introduces delay, jitter, packet loss 
+and duplication to packets relayed between these two sockets.   
+Useful for debugging UDP communication, works cross platform and does not require booting into it on a dedicated emulation PC.
+
 
 Source
 ---------------------
-The code can be found inside __DatagramWanEmulator.java__
+The code can be found inside __DatagramWanEmulator.java__.
 
 JavaDoc
 ---------------------
-The generated javadoc can be found on the [__Github Pages__](http://mucaho.github.io/JNetEmu)
+The generated javadoc can be found on the [__Github Pages__](http://mucaho.github.io/jnetemu).
 
 Example
 ---------------------
@@ -68,4 +68,4 @@ The debugging output shows the following characteristics:
 100 sent + 100 received. In this case the line count was 189, that means some messages were not received)
 * Some messages get __delivered multiple times__. (e.g. Server is receiving #75 twice)
 
-_All of this parameters can be tuned_.
+_All of this parameters can be tuned on-the-fly_.
