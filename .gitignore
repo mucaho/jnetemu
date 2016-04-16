@@ -1,0 +1,6 @@
+# Generated outputs
+target/
+# Idea files
+.idea/
+*.iml
+
