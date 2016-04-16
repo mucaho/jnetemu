@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link DatagramWanEmulator#DatagramWanEmulator(SocketAddress, SocketAddress, SocketAddress) constructor}.
  * Use the appropriate methods to {@link DatagramWanEmulator#startEmulation() start} and
  * {@link DatagramWanEmulator#stopEmulation() stop} the emulation.
- * The actual computation of {@link #computeNetworkConditions(List, long) network conditions}
+ * The actual computation of {@link #computeNetworkConditions(long, Collection, List) network conditions}
  * is given by subclasses of this abstract class.
  * <p>
  * Internally, this emulator uses a single thread for all emulator instances
@@ -117,7 +117,7 @@ public abstract class DatagramWanEmulator {
     ///////////////////////
 
     // setup on instance creation
-    private final Queue<QueuedPacket> queuedPackets = new PriorityQueue<QueuedPacket>(16);
+    private final Queue<ScheduledPacket> scheduledPackets = new PriorityQueue<ScheduledPacket>(16);
     private final Queue<ByteBuffer> writableBuffers = new LinkedList<ByteBuffer>();
     // setup in constructor
     private final SocketAddress socketAddressA;
@@ -187,23 +187,34 @@ public abstract class DatagramWanEmulator {
      * At any time it is guaranteed to be called from a single thread only,
      * thus implementing classes should not worry about threading issues.
      *
-     * @param latencies a list that should be filled with zero or more latencies
-     *                  that will be applied to the incoming packet:
-     *                  <ul>
-     *                  <li>A zero-length list indicates packet gets dropped.</li>
-     *                  <li>A list with a single element indicates the latency to apply to the incoming packet.</li>
-     *                  <li>A list with {@code n} elements indicates that the packet will be duplicated {@code n-1} times
-     *                  with the respective latencies applied to those duplicates.</li>
-     *                  </ul>
      * @param timeNow the current low-resolution system time in {@code ms},
-     *                that should be used by all time-dependent computations
+     *                that should be used by all time-dependent computations.
+     *                It represents the difference between the current time
+     *                and midnight, 01.01.1970 UTC.
+     * @param scheduled a read-only ordered collection containing already scheduled packets.
+     *                  Note that packets being duplicated are represented multiple times in this collection.
+     *                  This is provided as additional information for computing network conditions.
+     * @param scheduledTimes a writable list that should be filled with zero or more scheduled times
+     *                       at which the incoming packet will be relayed.
+     *                       Scheduled times are given as the difference between current time ({@code timeNow})
+     *                       and midnight, 01.01.1970 UTC.
+     *                       <ul>
+     *                       <li>A zero-length list indicates packet gets dropped.</li>
+     *                       <li>A list with a single element indicates at which time to relay the incoming packet.</li>
+     *                       <li>A list with {@code n} elements indicates that the packet will be duplicated {@code n-1} times.
+     *                       These duplicates will be sent according to the time values provided.</li>
+     *                       </ul>
      */
-    protected abstract List<Integer> computeNetworkConditions(List<Integer> latencies, long timeNow);
+    protected abstract void computeNetworkConditions(long timeNow,
+                                                     Collection<? extends Scheduled> scheduled,
+                                                     List<Long> scheduledTimes);
 
-    private final List<Integer> latencies = new ArrayList<Integer>();
-    private List<Integer> computeNetworkConditions(long timeNow) {
-        latencies.clear();
-        return computeNetworkConditions(latencies, timeNow);
+    private final List<Long> scheduledTimes = new ArrayList<Long>();
+    private final Collection<? extends Scheduled> scheduledOut = Collections.unmodifiableCollection(scheduledPackets);
+    private List<Long> computeNetworkConditions(long timeNow) {
+        scheduledTimes.clear();
+        computeNetworkConditions(timeNow, scheduledOut, scheduledTimes);
+        return scheduledTimes;
     }
 
     /**
@@ -240,10 +251,10 @@ public abstract class DatagramWanEmulator {
         }
 
         PacketId packetId = new PacketId();
-        for (Integer latency : computeNetworkConditions(timeNow)) {
+        for (Long scheduledTime : computeNetworkConditions(timeNow)) {
             packetId.count++;
-            QueuedPacket queued = new QueuedPacket(buffer, receiverAddress, packetId, timeNow + latency);
-            queuedPackets.offer(queued);
+            ScheduledPacket scheduled = new ScheduledPacket(buffer, receiverAddress, packetId, scheduledTime);
+            scheduledPackets.offer(scheduled);
         }
 
         if (packetId.count == 0) {
@@ -260,8 +271,8 @@ public abstract class DatagramWanEmulator {
      * @return {@code true} if something was written, {@code false} otherwise
      */
     private boolean needsWriting(long timeNow) {
-        QueuedPacket queued = queuedPackets.peek();
-        return queued != null && queued.isReady(timeNow);
+        ScheduledPacket scheduled = scheduledPackets.peek();
+        return scheduled != null && scheduled.isReady(timeNow);
     }
 
     /**
@@ -270,22 +281,22 @@ public abstract class DatagramWanEmulator {
      * @return {@code true} if something was written, {@code false} otherwise
      */
     private boolean write(long timeNow) throws IOException {
-        QueuedPacket queued = queuedPackets.peek();
-        if (queued == null || !queued.isReady(timeNow)) { // if there is no ready packet yet
+        ScheduledPacket scheduled = scheduledPackets.peek();
+        if (scheduled == null || !scheduled.isReady(timeNow)) { // if there is no ready packet yet
             return false;
         }
-        queued = queuedPackets.poll();
-        ByteBuffer buffer = queued.buffer;
+        scheduled = scheduledPackets.poll();
+        ByteBuffer buffer = scheduled.buffer;
 
         buffer.rewind();
-        int bytesSent = datagramChannel.send(buffer, queued.receiverAddress);
+        int bytesSent = datagramChannel.send(buffer, scheduled.receiverAddress);
         if (bytesSent <= 0) { // if datagram could not be sent yet
             buffer.rewind();
-            queuedPackets.offer(queued);
+            scheduledPackets.offer(scheduled);
             return false;
         }
 
-        if (--queued.packetId.count == 0) {
+        if (--scheduled.packetId.count == 0) {
             buffer.clear();
             writableBuffers.offer(buffer);
         }
@@ -419,14 +430,33 @@ public abstract class DatagramWanEmulator {
         private int count = 0;
     }
 
-    private final static class QueuedPacket implements Comparable<QueuedPacket> {
+    public interface Scheduled extends Comparable<Scheduled> {
+        /**
+         * Retrieve the time this object will be ready to be processed.
+         * @return the difference in {@code ms}, between the time this object is ready to be processed
+         *         and midnight, 01.01.1970 UTC.
+         */
+        long getScheduledTime();
+
+        /**
+         * Check whether this object is ready to be processed.
+         * @param timeNow the current low-resolution system time in {@code ms},
+         *                which will be used to determine if this object is ready yet.
+         *                It represents the difference between the current time
+         *                and midnight, 01.01.1970 UTC.
+         * @return {@code true}, iff object is ready to be processed, {@code false} otherwise
+         */
+        boolean isReady(long timeNow);
+    }
+
+    private final static class ScheduledPacket implements Scheduled {
         private final ByteBuffer buffer;
         private final SocketAddress receiverAddress;
         private final long finishedTime;
         private final PacketId packetId;
 
-        private QueuedPacket(ByteBuffer buffer, SocketAddress receiverAddress,
-                             PacketId packetId, long finishedTime) {
+        private ScheduledPacket(ByteBuffer buffer, SocketAddress receiverAddress,
+                                PacketId packetId, long finishedTime) {
             this.buffer = buffer;
             this.receiverAddress = receiverAddress;
             this.finishedTime = finishedTime;
@@ -434,14 +464,20 @@ public abstract class DatagramWanEmulator {
         }
 
         @Override
-        public int compareTo(QueuedPacket other) {
-            long thisDelay = this.finishedTime;
-            long otherDelay = other.finishedTime;
-            return (int) (thisDelay - otherDelay);
+        public long getScheduledTime() {
+            return finishedTime;
         }
 
-        private boolean isReady(long timeNow) {
+        @Override
+        public boolean isReady(long timeNow) {
             return finishedTime <= timeNow;
+        }
+
+        @Override
+        public int compareTo(Scheduled other) {
+            long thisDelay = this.getScheduledTime();
+            long otherDelay = other.getScheduledTime();
+            return (int) (thisDelay - otherDelay);
         }
     }
 }

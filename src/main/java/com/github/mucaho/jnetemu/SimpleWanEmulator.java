@@ -25,6 +25,7 @@ package com.github.mucaho.jnetemu;
 
 
 import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 
@@ -68,6 +69,7 @@ public class SimpleWanEmulator extends DatagramWanEmulator {
     public SimpleWanEmulator(SocketAddress emulatorAddress, SocketAddress socketAddressA, SocketAddress socketAddressB, int maxPacketSize) {
         super(emulatorAddress, socketAddressA, socketAddressB, maxPacketSize);
     }
+
 
     //////////////////
     /// PROPERTIES ///
@@ -195,12 +197,10 @@ public class SimpleWanEmulator extends DatagramWanEmulator {
 
 
     @Override
-    protected List<Integer> computeNetworkConditions(List<Integer> latencies, long timeNow) {
+    protected void computeNetworkConditions(long timeNow, Collection<? extends Scheduled> scheduled, List<Long> scheduledTimes) {
         do {
             if (random.nextFloat() >= loss)
-                latencies.add(delay - jitter + random.nextInt(jitter * 2 + 1));
+                scheduledTimes.add(timeNow + delay - jitter + random.nextInt(jitter * 2 + 1));
         } while (random.nextFloat() < duplication);
-
-        return latencies;
     }
 }
