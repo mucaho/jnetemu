@@ -25,6 +25,7 @@ package com.github.mucaho.jnetemu;
 
 
 import java.net.SocketAddress;
+import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
@@ -38,7 +39,7 @@ import java.util.Random;
  */
 public class SimpleWanEmulator extends DatagramWanEmulator {
 
-    private final static Random random = new Random();
+    private final static Random random = new SecureRandom();
 
     /**
      * Construct a new {@code SimpleWanEmulator}. This will automatically create a new socket

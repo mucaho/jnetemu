@@ -333,10 +333,17 @@ public abstract class DatagramWanEmulator {
 
                             DatagramWanEmulator emulator = (DatagramWanEmulator) key.attachment();
                             if (key.isReadable()) {
-                                while (emulator.read(timeNow)) ;
+                                boolean hasMore;
+                                do {
+                                    hasMore = emulator.read(timeNow);
+                                } while (hasMore);
                             }
                             if (key.isWritable()) {
-                                while (emulator.write(timeNow)) ;
+                                boolean hasMore;
+                                do {
+                                    hasMore = emulator.write(timeNow);
+                                } while (hasMore);
+
                                 // remove OP_WRITE as interestOp
                                 key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
                             }
@@ -376,7 +383,7 @@ public abstract class DatagramWanEmulator {
             throw new ClosedChannelException();
 
         // setup up a new selectionThread if this is the first emulator instance
-        synchronized (DatagramWanEmulator.emulatorCount) {
+        synchronized (DatagramWanEmulator.class) {
             if (emulatorCount.getAndIncrement() == 0) {
                 // open a selector
                 selector = Selector.open();
@@ -401,7 +408,7 @@ public abstract class DatagramWanEmulator {
      */
     public void stopEmulation() throws InterruptedException, IOException {
         // destroy the old selectionThread if this is was the last emulator instance
-        synchronized (DatagramWanEmulator.emulatorCount) {
+        synchronized (DatagramWanEmulator.class) {
             if (emulatorCount.decrementAndGet() == 0) {
                 selectionThread.interrupt();
                 selectionThread.join();
@@ -418,39 +425,12 @@ public abstract class DatagramWanEmulator {
         datagramChannel.close();
     }
 
-
-
     //////////////////////
     /// HELPER CLASSES ///
     //////////////////////
 
     private final static class PacketId {
         private int count = 0;
-    }
-
-    /**
-     * Interface for handling scheduled objects, that should be processed at a given time.
-     * <br>
-     * The time is represented as the difference in {@code ms},
-     * between the time this object is ready to be processed and midnight, 01.01.1970 UTC.
-     */
-    public interface Scheduled extends Comparable<Scheduled> {
-        /**
-         * Retrieve the time this object will be ready to be processed.
-         * @return the difference in {@code ms}, between the time this object is ready to be processed
-         *         and midnight, 01.01.1970 UTC.
-         */
-        long getScheduledTime();
-
-        /**
-         * Check whether this object is ready to be processed.
-         * @param timeNow the current low-resolution system time in {@code ms},
-         *                which will be used to determine if this object is ready yet.
-         *                It represents the difference between the current time
-         *                and midnight, 01.01.1970 UTC.
-         * @return {@code true}, iff object is ready to be processed, {@code false} otherwise
-         */
-        boolean isReady(long timeNow);
     }
 
     private final static class ScheduledPacket implements Scheduled {
@@ -482,6 +462,29 @@ public abstract class DatagramWanEmulator {
             long thisDelay = this.getScheduledTime();
             long otherDelay = other.getScheduledTime();
             return (int) (thisDelay - otherDelay);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ScheduledPacket that = (ScheduledPacket) o;
+
+            if (finishedTime != that.finishedTime) return false;
+            if (!buffer.equals(that.buffer)) return false;
+            if (!receiverAddress.equals(that.receiverAddress)) return false;
+            return packetId.equals(that.packetId);
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = buffer.hashCode();
+            result = 31 * result + receiverAddress.hashCode();
+            result = 31 * result + (int) (finishedTime ^ (finishedTime >>> 32));
+            result = 31 * result + packetId.hashCode();
+            return result;
         }
     }
 }
